@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>QA Task List</title>
+<h1>Task list</h1><form><label for="task">New task</label><input id="task" required><button>Add task</button></form>
+<p role="status">0 tasks remaining</p><ul aria-label="Tasks"></ul>
+<script>
+const form=document.querySelector('form'), input=document.querySelector('#task'), list=document.querySelector('ul');
+function update(){document.querySelector('[role=status]').textContent=`${list.querySelectorAll('input:not(:checked)').length} tasks remaining`;}
+form.onsubmit=event=>{
+ event.preventDefault();const text=input.value.trim();if(!text)return;
+ const li=document.createElement('li'),label=document.createElement('label'),box=document.createElement('input'),span=document.createElement('span'),remove=document.createElement('button');
+ box.type='checkbox';box.onchange=update;span.textContent=text;label.append(box,span);
+ remove.textContent='Delete';remove.setAttribute('aria-label',`Delete ${text}`);remove.onclick=()=>{li.remove();update();};
+ li.append(label,remove);list.append(li);input.value='';update();
+};
+</script></html>
