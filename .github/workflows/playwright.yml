@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Build test image
         run: docker compose build
+      - name: Check TypeScript
+        run: docker compose run --rm tests npm run typecheck
       - name: Run Playwright tests
         run: docker compose run --rm tests
       - name: Upload test report and failure evidence

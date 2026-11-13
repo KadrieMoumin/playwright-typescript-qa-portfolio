@@ -1,6 +1,21 @@
+# Dependencies
 node_modules/
+
+# Playwright reports, results and local authentication state
 playwright-report/
 test-results/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+
+# Local configuration (keep a shareable example)
 .env
 .env.*
+!.env.example
+
+# Logs and TypeScript build cache
+*.log
+*.tsbuildinfo
+
+# macOS
 .DS_Store

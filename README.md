@@ -9,11 +9,11 @@ With Node.js 24 LTS installed:
 
 ```sh
 npm ci
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm test
 ```
 
-On Linux use `npx playwright install --with-deps chromium`.
+On Linux use `npx playwright install --with-deps chromium firefox webkit`.
 Playwright starts the app automatically for tests. For manual exploration run
 `npm start` and open http://127.0.0.1:3000.
 
@@ -21,15 +21,19 @@ Playwright starts the app automatically for tests. For manual exploration run
 npm run test:headed
 npm run test:ui
 npm run report
+npm run typecheck
+npm test -- --project=firefox
 npm test -- --grep "reopening"
 ```
 
 ## Test coverage
 
-Ten isolated Chromium tests cover adding, completing, deleting, whitespace-only
+Ten isolated functional scenarios cover adding, completing, deleting, whitespace-only
 input, independent task completion, reopening completed tasks, deleting an exact
 match among similar names, trimming names, native empty-input validation, and the
-documented reset on reload. Tests use accessible locators and retrying assertions
+documented reset on reload. Four additional keyboard scenarios cover Enter submission,
+Tab focus order, Space toggling, and keyboard deletion. All 14 scenarios run in
+Chromium, Firefox, and WebKit (42 test runs). Tests use accessible locators and retrying assertions
 without fixed sleeps. Browser isolation does not imply backend-data isolation;
 this app stores tasks only in its page DOM.
 
@@ -60,7 +64,7 @@ local installation; the Docker workflow runs headlessly.
 
 ## GitHub Actions
 
-`.github/workflows/playwright.yml` builds the Docker image and runs the same suite
+`.github/workflows/playwright.yml` builds the Docker image, checks TypeScript, and runs the same suite
 on pushes, pull requests, and manual dispatch. It uploads the HTML report and
 available failure evidence for 14 days, including when tests fail. CI uses one
 worker and one retry. Remote execution is confirmed only after the workflow runs
@@ -70,7 +74,9 @@ in GitHub; adding the workflow locally does not trigger it.
 
 - `app/`: local task-list app and Node HTTP server.
 - `tests/tasks.spec.ts`: browser scenarios.
-- `playwright.config.ts`: server, browser, retries and failure evidence.
+- `tests/keyboard.spec.ts`: keyboard interaction scenarios.
+- `playwright.config.ts`: server, three browser projects, retries and failure evidence.
+- `tsconfig.json`: strict TypeScript checking for configuration and tests.
 - `Dockerfile`, `compose.yaml`, `.dockerignore`: container setup.
 - `.github/workflows/playwright.yml`: continuous integration.
 
@@ -82,3 +88,5 @@ implemented. The tests exercise the local app's documented behavior.
 - https://playwright.dev/docs/intro
 - https://playwright.dev/docs/ci
 - https://playwright.dev/docs/docker
+
+Type checking covers TypeScript tests and configuration; it does not check the app's inline JavaScript. WebKit tests the supplied browser engine, not installed Safari.
