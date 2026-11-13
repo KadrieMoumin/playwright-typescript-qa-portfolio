@@ -1,50 +1,84 @@
 # Playwright QA Portfolio
 
-TypeScript browser tests by Kadrie Moumin, using an included local task list app.
-Tasks reset when the page reloads; no external account is required.
+TypeScript browser tests by Kadrie Moumin against an included local task-list app.
+Tasks reset on reload; no account or external backend is required.
 
-## Setup
+## Run locally
 
-Install Node.js 24 LTS, open this folder in VS Code, then run:
+With Node.js 24 LTS installed:
 
-```bash
+```sh
 npm ci
 npx playwright install chromium
 npm test
 ```
 
-On Linux, use `npx playwright install --with-deps chromium` if system libraries are missing.
-Watch tests: `npm run test:headed`. Interactive runner: `npm run test:ui`.
-Report: `npm run report`. Manual app: `npm start`, then http://127.0.0.1:3000.
-Playwright starts the server automatically for tests.
+On Linux use `npx playwright install --with-deps chromium`.
+Playwright starts the app automatically for tests. For manual exploration run
+`npm start` and open http://127.0.0.1:3000.
+
+```sh
+npm run test:headed
+npm run test:ui
+npm run report
+npm test -- --grep "reopening"
+```
+
+## Test coverage
+
+Ten isolated Chromium tests cover adding, completing, deleting, whitespace-only
+input, independent task completion, reopening completed tasks, deleting an exact
+match among similar names, trimming names, native empty-input validation, and the
+documented reset on reload. Tests use accessible locators and retrying assertions
+without fixed sleeps. Browser isolation does not imply backend-data isolation;
+this app stores tasks only in its page DOM.
+
+## Docker
+
+Start Docker Desktop, then run:
+
+```sh
+docker compose build
+docker compose run --rm tests
+```
+
+The image includes browsers and Linux dependencies. npm packages are installed
+from the lockfile. The Playwright image version and build-time version check must
+match the locked version; update both when upgrading. Rebuild after code changes.
+The app starts inside the test container automatically; no app port is published.
+Reports and test results persist in host folders through Compose volumes.
+
+```sh
+# Run one test
+docker compose run --rm tests npm test -- --grep "reopening"
+# View the report
+docker compose run --rm -p 127.0.0.1:9323:9323 tests npx playwright show-report --host 0.0.0.0 --port 9323
+```
+
+Open http://127.0.0.1:9323 and stop with Ctrl+C. Headed and UI modes use the
+local installation; the Docker workflow runs headlessly.
+
+## GitHub Actions
+
+`.github/workflows/playwright.yml` builds the Docker image and runs the same suite
+on pushes, pull requests, and manual dispatch. It uploads the HTML report and
+available failure evidence for 14 days, including when tests fail. CI uses one
+worker and one retry. Remote execution is confirmed only after the workflow runs
+in GitHub; adding the workflow locally does not trigger it.
 
 ## Files
 
-- tests/tasks.spec.ts: add, complete, delete and whitespace validation tests.
-- playwright.config.ts: server, browser and failure evidence settings.
-- app/: small application under test.
-- .github/workflows/playwright.yml: tests on GitHub pushes and pull requests.
+- `app/`: local task-list app and Node HTTP server.
+- `tests/tasks.spec.ts`: browser scenarios.
+- `playwright.config.ts`: server, browser, retries and failure evidence.
+- `Dockerfile`, `compose.yaml`, `.dockerignore`: container setup.
+- `.github/workflows/playwright.yml`: continuous integration.
 
-## Day 1: 2–3 hours
+## Scope and references
 
-1. Install and run (20 minutes).
-2. Read the first test and explain test, page, await, locators and expect (30 minutes).
-3. Run headed and match browser actions to code (20 minutes).
-4. Add your own test: create two tasks, complete one, assert one remains (40 minutes).
-5. Deliberately break an expected count, read the error and fix it (20 minutes).
-6. Explain why role/label locators and retrying assertions are useful (10 minutes).
+No persistence, authentication, performance testing, or accessibility audit is
+implemented. The tests exercise the local app's documented behavior.
 
-## Next steps
-
-Test unchecking a completed task, deleting only one of two tasks, and trimming names.
-Later add cross-browser coverage, an API and network mocking.
-Current scope excludes persistence, authentication, performance and accessibility audits.
-Tests are isolated and use no fixed sleeps.
-
-## GitHub
-
-Create an empty repository and follow GitHub's instructions to push this folder.
-Commit package-lock.json; exclude node_modules and generated reports.
-The workflow is included but has not been run on GitHub.
-
-Docs: https://playwright.dev/docs/intro
+- https://playwright.dev/docs/intro
+- https://playwright.dev/docs/ci
+- https://playwright.dev/docs/docker

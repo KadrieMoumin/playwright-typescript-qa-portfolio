@@ -1,0 +1,10 @@
+services:
+  tests:
+    build: .
+    init: true
+    ipc: host
+    environment:
+      CI: "1"
+    volumes:
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
