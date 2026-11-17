@@ -19,3 +19,6 @@ playwright/.auth/
 
 # macOS
 .DS_Store
+
+# Local persistent task data
+data/

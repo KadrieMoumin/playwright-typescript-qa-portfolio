@@ -16,6 +16,7 @@ export class TaskPage {
 
   async goto() {
     await this.page.goto('/');
+    await this.page.waitForFunction(() => !document.querySelector('form')?.hasAttribute('aria-busy'));
   }
 
   taskCheckbox(name: string) {

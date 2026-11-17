@@ -73,10 +73,13 @@ test('rejects an empty task with native required validation', async ({ taskPage 
   await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });
 
-test('resets tasks on reload as documented', async ({ page, taskPage }) => {
-  await taskPage.addTask('Temporary task');
+test('preserves tasks and completion on reload', async ({ page, taskPage }) => {
+  await taskPage.addTask('Persistent task');
+  await taskPage.completeTask('Persistent task');
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
   await expect(taskPage.taskItems).toHaveCount(1);
   await page.reload();
-  await expect(taskPage.taskItems).toHaveCount(0);
+  await expect(taskPage.taskItems).toHaveCount(1);
+  await expect(taskPage.taskCheckbox('Persistent task')).toBeChecked();
   await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });

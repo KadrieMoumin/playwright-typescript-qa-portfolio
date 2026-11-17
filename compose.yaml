@@ -6,7 +6,12 @@ services:
     init: true
     ipc: host
     environment:
+      TASK_DATA_DIR: /app/data
       CI: "1"
     volumes:
+      - task-data:/app/data
       - ./playwright-report:/app/playwright-report
       - ./test-results:/app/test-results
+
+volumes:
+  task-data:

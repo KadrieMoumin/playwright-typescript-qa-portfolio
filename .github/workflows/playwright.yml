@@ -18,6 +18,8 @@ jobs:
         run: docker compose build
       - name: Check TypeScript
         run: docker compose run --rm tests npm run typecheck
+      - name: Check persistence across server restarts
+        run: docker compose run --rm tests npm run test:server
       - name: Run Playwright tests
         run: docker compose run --rm tests
       - name: Upload test report and failure evidence

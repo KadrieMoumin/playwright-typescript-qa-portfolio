@@ -1,7 +1,8 @@
 # Playwright QA Portfolio
 
-TypeScript browser tests by Kadrie Moumin against an included local task-list app.
-Tasks reset on reload; no account or external backend is required.
+TypeScript UI and API tests by Kadrie Moumin against a local task-list app.
+Tasks are saved to disk and survive page reloads and server restarts. No external
+account or backend is required.
 
 ## Run locally
 
@@ -10,191 +11,157 @@ With Node.js 24 LTS installed:
 ```sh
 npm ci
 npx playwright install chromium firefox webkit
+npm run typecheck
+npm run test:server
 npm test
 ```
 
-On Linux use `npx playwright install --with-deps chromium firefox webkit`.
-Playwright starts the app automatically for tests. For manual exploration run
-`npm start` and open http://127.0.0.1:3000.
+On Linux, install browser dependencies with `npx playwright install --with-deps`.
+Playwright starts the app automatically. For manual exploration, run `npm start`
+and open http://127.0.0.1:3000. The same browser cookie retains its task workspace.
 
 ```sh
+npm test -- --project=api
+npm test -- --project=firefox
+npm test -- tests/network.spec.ts
 npm run test:headed -- --grep-invert @visual
 npm run test:ui -- --grep-invert @visual
 npm run report
-npm run typecheck
-npm test -- --project=firefox
-npm test -- --grep "reopening"
 ```
 
-## Test coverage
+`npm test` excludes Linux visual baselines so host tests work on macOS.
+`npm run test:all` includes them; use Docker for the complete suite.
 
-Ten isolated functional scenarios cover adding, completing, deleting, whitespace-only
-input, independent task completion, reopening completed tasks, deleting an exact
-match among similar names, trimming names, native empty-input validation, and the
-documented reset on reload. Four additional keyboard scenarios cover Enter submission,
-Tab focus order, Space toggling, and keyboard deletion. All 14 scenarios run in
-desktop Chromium, Firefox, and WebKit (42 functional/keyboard test runs). Tests use accessible locators and retrying assertions
-without fixed sleeps. Browser isolation does not imply backend-data isolation;
-this app stores tasks only in its page DOM.
+## Docker and CI
 
-## Docker
-
-Start Docker Desktop, then run:
+Start Docker Desktop:
 
 ```sh
 docker compose build
+docker compose run --rm tests npm run typecheck
+docker compose run --rm tests npm run test:server
 docker compose run --rm tests
 ```
 
-The image includes browsers and Linux dependencies. npm packages are installed
-from the lockfile. The Playwright image version and build-time version check must
-match the locked version; update both when upgrading. Rebuild after code changes.
-The app starts inside the test container automatically; no app port is published.
-Reports and test results persist in host folders through Compose volumes.
+The image contains browsers and Linux dependencies and installs npm packages
+from package-lock.json. Keep the Docker image version and build-time version
+check aligned with the locked Playwright version. Rebuild after code changes.
+Docker uses Linux/amd64 to match the GitHub runner's screenshot environment;
+on Apple Silicon it may run more slowly under emulation.
+
+The server starts inside the test container. Reports and failure evidence are
+saved in host playwright-report/ and test-results/. A named task-data volume
+persists manual/API state across container runs; automated test fixtures remove
+only their own data. The app data directory defaults to data/ on the host and
+can be overridden with TASK_DATA_DIR. Runtime data is ignored by Git and Docker.
+
+`.github/workflows/playwright.yml` builds the image, checks TypeScript, verifies
+persistence over a process restart, runs the full suite, and uploads the HTML
+report and available failure evidence for 14 days. It runs on pushes, pull
+requests and manual dispatch, using one worker and one retry. New workflow
+changes are verified remotely only after they run on GitHub.
 
 ```sh
-# Run one test
-docker compose run --rm tests npm test -- --grep "reopening"
-# View the report
 docker compose run --rm -p 127.0.0.1:9323:9323 tests npx playwright show-report --host 0.0.0.0 --port 9323
 ```
 
-Open http://127.0.0.1:9323 and stop with Ctrl+C. Headed and UI modes use the
-local installation; the Docker workflow runs headlessly.
+Open http://127.0.0.1:9323 and stop with Ctrl+C.
 
-## GitHub Actions
+## Task API
 
-`.github/workflows/playwright.yml` builds the Docker image, checks TypeScript, and runs the same suite
-on pushes, pull requests, and manual dispatch. It uploads the HTML report and
-available failure evidence for 14 days, including when tests fail. CI uses one
-worker and one retry. Remote execution is confirmed only after the workflow runs
-in GitHub; adding the workflow locally does not trigger it.
+| Method | Endpoint | Contract |
+| --- | --- | --- |
+| GET | /api/health | 200 with server readiness |
+| GET | /api/tasks | 200 with this workspace's tasks |
+| POST | /api/tasks | 201 with a new task and Location header |
+| GET | /api/tasks/:id | 200 with the task, or 404 |
+| PATCH | /api/tasks/:id | 200; accepts only a boolean completed field |
+| DELETE | /api/tasks/:id | 204, or 404 for an unknown task |
+| DELETE | /api/tasks | 204; clears only the current workspace |
 
-## Files
+Tasks contain id (UUID), text (trimmed, 1..500 characters), and completed.
+POST accepts text and an optional client-generated id. Repeating that ID and
+text returns the original task with 200; different text returns 409. The UI
+retains the same ID during Retry, including when a save succeeded but its reply
+was lost. Invalid data returns 422, malformed JSON/IDs return 400, unsupported
+content types return 415, bodies over 16 KiB return 413, and unsupported methods
+return 405 with Allow. Requests and responses are real local HTTP calls.
 
-- `app/`: local task-list app and Node HTTP server.
-- `tests/tasks.spec.ts`: browser scenarios.
-- `tests/keyboard.spec.ts`: keyboard interaction scenarios.
-- `playwright.config.ts`: server, three browser projects, retries and failure evidence.
-- `tsconfig.json`: strict TypeScript checking for configuration and tests.
-- `Dockerfile`, `compose.yaml`, `.dockerignore`: container setup.
-- `.github/workflows/playwright.yml`: continuous integration.
+Manual sessions use a SameSite=Strict HttpOnly workspace cookie. Tests provide
+an x-task-workspace UUID header. These identifiers isolate teaching data; they
+are not authentication or authorization. The server binds only to localhost.
+The file store uses atomic replacement and serialized single-process writes;
+it is not a multi-process database or production persistence architecture.
 
-## Scope and references
+## Fixtures and page object
 
-No persistence, authentication, or performance testing is implemented. Automated
-accessibility checks cover common detectable issues; they do not establish full
-WCAG compliance or replace manual and assistive-technology testing. The tests exercise the local app's documented behavior.
-
-- https://playwright.dev/docs/intro
-- https://playwright.dev/docs/ci
-- https://playwright.dev/docs/docker
-
-Type checking covers TypeScript tests and configuration; it does not check the app's inline JavaScript. WebKit tests the supplied browser engine, not installed Safari.
-
-## Accessibility and mobile coverage
-
-Three whole-page axe scans cover empty, populated and completed task lists.
-They run on three desktop browsers and two emulated mobile projects (15 scans).
-Full axe results are attached to the HTML report, including on violations.
-No rules or elements are excluded.
-
-The mobile-chrome (Pixel 5) and mobile-safari (iPhone 13) projects also run four
-mobile scenarios each: a touch-based add/complete/delete flow and long-name
-layout checks at 320, 375 and 414 CSS pixels. Layout checks verify no horizontal
-scrolling, a fully visible Delete control, and successful touch deletion.
-Desktop keyboard scenarios remain assigned to desktop projects.
-
-The non-visual suite contains 21 distinct scenarios and 65 project test runs:
-42 functional/keyboard runs + 15 accessibility scans + 8 mobile runs.
-The existing Docker and GitHub Actions commands include all five projects.
-
-```sh
-npm test -- tests/accessibility.spec.ts
-npm test -- --project=mobile-chrome
-npm test -- --project=mobile-safari
-# The same selection inside Docker:
-docker compose run --rm tests npm test -- --project=mobile-chrome
-```
-
-Mobile projects emulate browser settings and touch input. They do not run on
-physical phones or certify installed Chrome/Safari behavior. The app now has a
-main landmark, mobile viewport metadata, wrapping task names, larger controls,
-and visible keyboard focus styling.
-
-- `tests/accessibility.spec.ts`: whole-page axe checks and report attachments.
-- `tests/mobile.spec.ts`: touch interactions and narrow-screen layout checks.
-- https://playwright.dev/docs/accessibility-testing
-- https://playwright.dev/docs/emulation
-
-## Page object and custom fixture
-
-`pages/task-page.ts` owns task-list locators and reusable pointer actions:
-`addTask`, `completeTask`, `reopenTask`, and `deleteTask`. Named-task locators use
-exact accessible names to distinguish similar task names. Business assertions
-remain in tests; keyboard and mobile tests retain their explicit key/tap actions.
-
-`fixtures/task.fixture.ts` extends Playwright's test with a test-scoped `taskPage`
-fixture. It wraps the built-in isolated `page`, navigates to the app, and provides
-the object through `await use(taskPage)`. Playwright performs page/context cleanup;
-the custom fixture does not close shared resources or share state across tests.
-Import test and expect from this fixture module in application tests:
+- pages/task-page.ts: exact accessible locators and reusable task actions.
+- fixtures/task.fixture.ts: workspaceId, taskApi, createdTask and taskPage fixtures.
+- Each test gets a fresh workspace UUID. Browser and API contexts use the same
+  header so API setup and UI checks operate on the same isolated data.
+- taskApi owns API-request disposal and workspace cleanup in finally blocks.
+  taskPage depends on it so UI-created records are cleaned up too.
+- createdTask prepares an API record for integration scenarios.
+- Playwright owns browser page/context cleanup. Tests do not clear a global store.
+- Tests keep business assertions visible. Keyboard and mobile tests keep explicit
+  key and tap interactions.
 
 ```ts
 import { test, expect } from '../fixtures/task.fixture';
 
-test('adds a task', async ({ taskPage }) => {
-  await taskPage.addTask('Review tests');
-  await expect(taskPage.taskCheckbox('Review tests')).not.toBeChecked();
-  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
+test('shows API-prepared data', async ({ createdTask, taskPage }) => {
+  await taskPage.goto();
+  await expect(taskPage.taskCheckbox(createdTask.text)).not.toBeChecked();
 });
 ```
 
-Type checking and Docker include both the pages and fixtures directories. Test
-coverage and browser assignments remain the same for non-visual coverage (65 project test runs).
+## Coverage
 
-## Visual regression tests
+The full suite contains 126 project test runs, plus one Node persistence test:
 
-`tests/visual.spec.ts` adds empty, populated and partially completed task-list
-screenshots for all five browser projects (15 image comparisons). Test inputs,
-color scheme, locale, timezone and screenshot options are fixed. Existing
-functional assertions still verify behavior before the screenshot comparison.
+- 19 API scenarios run once in the api project, without opening a browser.
+- 10 task scenarios and 4 keyboard scenarios run on three desktop browsers.
+- 2 API/UI integration scenarios and 7 network-recovery scenarios run on three
+  desktop browsers. They cover HTTP 500, connection failure, held responses,
+  rollback after failed updates/deletes, loading recovery and a lost save reply.
+- 3 whole-page axe checks run on three desktop and two emulated mobile projects.
+  Full axe results are attached to the HTML report without excluded rules.
+- 4 mobile scenarios per mobile project cover touch interaction and long-name
+  layouts at 320, 375 and 414 CSS pixels.
+- 3 visual states per browser project provide 15 image comparisons.
+- The Node test creates a record, restarts an actual server process using the same
+  temporary data directory, and verifies that the saved record can be retrieved.
 
-PNG baselines live in `tests/visual.spec.ts-snapshots/` and must be committed.
-They are generated and compared in the pinned Playwright Linux/amd64 Docker
-image, matching the architecture of the GitHub-hosted CI runner. On Apple Silicon,
-Docker may use emulation and run more slowly.
+The suite uses retrying assertions and controlled response gates instead of fixed
+sleeps. Mobile projects emulate Pixel 5 and iPhone 13 settings and touch input;
+they do not run on physical phones. WebKit is the supplied engine, not installed
+Safari. Automated axe checks do not establish full WCAG compliance. TypeScript
+checks tests, fixtures, page objects and configuration; not inline app JavaScript.
+Authentication, multi-user permissions and performance testing are out of scope.
 
-```sh
-# Normal host tests: 65 non-visual cases, without Linux screenshot comparisons.
-npm test
-# Full Docker/CI suite: 80 cases, including 15 visual comparisons.
-docker compose build
-docker compose run --rm tests
-# Visual comparisons only (uses baselines baked into the image).
-docker compose run --rm tests npm run test:visual
-```
+## Visual baselines
 
-`npm run test:all` and `npm run test:visual` should run inside Docker when using
-the committed Linux baselines. Host headed/UI commands can also discover visual
-tests; filter them out with `--grep-invert @visual` when running on macOS.
-
-For an intentional UI change, regenerate screenshots explicitly:
+PNG baselines in tests/visual.spec.ts-snapshots/ are committed source assets.
+The regular suite fails on missing or changed images; it does not update them.
+For an intentional design change:
 
 ```sh
 docker compose build
 docker compose -f compose.yaml -f compose.visual-update.yaml run --rm tests
-# Inspect every changed PNG before committing it.
+# Inspect every changed image and its diff before committing.
 git diff --stat
-# Rebuild so comparison uses the updated images.
 docker compose build
 docker compose run --rm tests
 ```
 
-The update-only Compose override mounts the baseline folder back to your host.
-The regular CI command never uses this override or requests snapshot updates.
-On visual failures, expected/actual/diff evidence is available in the HTML report
-and CI artifacts. Review diffs to decide whether the app is wrong or the intended
-design changed; do not update baselines merely to silence a failure.
+The update-only override mounts the baseline directory back to the host. CI
+never uses this override. Use the same Docker image and architecture when
+updating and comparing screenshots.
 
-Reference: https://playwright.dev/docs/test-snapshots
+## References
+
+- https://playwright.dev/docs/api-testing
+- https://playwright.dev/docs/test-fixtures
+- https://playwright.dev/docs/network
+- https://playwright.dev/docs/accessibility-testing
+- https://playwright.dev/docs/test-snapshots
