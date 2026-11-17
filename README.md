@@ -126,3 +126,29 @@ and visible keyboard focus styling.
 - `tests/mobile.spec.ts`: touch interactions and narrow-screen layout checks.
 - https://playwright.dev/docs/accessibility-testing
 - https://playwright.dev/docs/emulation
+
+## Page object and custom fixture
+
+`pages/task-page.ts` owns task-list locators and reusable pointer actions:
+`addTask`, `completeTask`, `reopenTask`, and `deleteTask`. Named-task locators use
+exact accessible names to distinguish similar task names. Business assertions
+remain in tests; keyboard and mobile tests retain their explicit key/tap actions.
+
+`fixtures/task.fixture.ts` extends Playwright's test with a test-scoped `taskPage`
+fixture. It wraps the built-in isolated `page`, navigates to the app, and provides
+the object through `await use(taskPage)`. Playwright performs page/context cleanup;
+the custom fixture does not close shared resources or share state across tests.
+Import test and expect from this fixture module in application tests:
+
+```ts
+import { test, expect } from '../fixtures/task.fixture';
+
+test('adds a task', async ({ taskPage }) => {
+  await taskPage.addTask('Review tests');
+  await expect(taskPage.taskCheckbox('Review tests')).not.toBeChecked();
+  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
+});
+```
+
+Type checking and Docker include both the pages and fixtures directories. Test
+coverage and browser assignments remain the same (65 project test runs).

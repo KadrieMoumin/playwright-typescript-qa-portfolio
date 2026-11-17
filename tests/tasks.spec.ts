@@ -1,94 +1,82 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/task.fixture';
 
-test.beforeEach(async ({ page }) => { await page.goto('/'); });
-
-test('adds a task', async ({ page }) => {
-  await page.getByLabel('New task').fill('Practise Playwright');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await expect(page.getByRole('checkbox', { name: 'Practise Playwright' })).not.toBeChecked();
-  await expect(page.getByRole('status')).toHaveText('1 tasks remaining');
-  await expect(page.getByLabel('New task')).toBeEmpty();
+test('adds a task', async ({ taskPage }) => {
+  await taskPage.addTask('Practise Playwright');
+  await expect(taskPage.taskCheckbox('Practise Playwright')).not.toBeChecked();
+  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
+  await expect(taskPage.newTaskInput).toBeEmpty();
 });
 
-test('completes a task', async ({ page }) => {
-  await page.getByLabel('New task').fill('Write a test');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await page.getByRole('checkbox', { name: 'Write a test' }).check();
-  await expect(page.getByRole('checkbox')).toBeChecked();
-  await expect(page.getByRole('status')).toHaveText('0 tasks remaining');
+test('completes a task', async ({ taskPage }) => {
+  await taskPage.addTask('Write a test');
+  await taskPage.completeTask('Write a test');
+  await expect(taskPage.taskCheckbox('Write a test')).toBeChecked();
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });
 
-test('deletes a task', async ({ page }) => {
-  await page.getByLabel('New task').fill('Remove me');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await page.getByRole('button', { name: 'Delete Remove me' }).click();
-  await expect(page.getByRole('listitem')).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('0 tasks remaining');
+test('deletes a task', async ({ taskPage }) => {
+  await taskPage.addTask('Remove me');
+  await taskPage.deleteTask('Remove me');
+  await expect(taskPage.taskItems).toHaveCount(0);
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });
 
-test('rejects whitespace-only tasks', async ({ page }) => {
-  await page.getByLabel('New task').fill('   ');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await expect(page.getByRole('listitem')).toHaveCount(0);
+test('rejects whitespace-only tasks', async ({ taskPage }) => {
+  await taskPage.addTask('   ');
+  await expect(taskPage.taskItems).toHaveCount(0);
 });
 
-
-test('completing one task leaves the other pending', async ({ page }) => {
+test('completing one task leaves the other pending', async ({ taskPage }) => {
   for (const name of ['Write tests', 'Review tests']) {
-    await page.getByLabel('New task').fill(name);
-    await page.getByRole('button', { name: 'Add task', exact: true }).click();
+    await taskPage.addTask(name);
   }
-  await page.getByRole('checkbox', { name: 'Write tests', exact: true }).check();
-  await expect(page.getByRole('checkbox', { name: 'Review tests', exact: true })).not.toBeChecked();
-  await expect(page.getByRole('listitem')).toHaveCount(2);
-  await expect(page.getByRole('status')).toHaveText('1 tasks remaining');
+  await taskPage.completeTask('Write tests');
+  await expect(taskPage.taskCheckbox('Review tests')).not.toBeChecked();
+  await expect(taskPage.taskItems).toHaveCount(2);
+  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
 });
 
-test('reopening a completed task updates the remaining count', async ({ page }) => {
-  await page.getByLabel('New task').fill('Reopen me');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  const task = page.getByRole('checkbox', { name: 'Reopen me', exact: true });
-  await task.check();
-  await expect(page.getByRole('status')).toHaveText('0 tasks remaining');
-  await task.uncheck();
+test('reopening a completed task updates the remaining count', async ({ taskPage }) => {
+  await taskPage.addTask('Reopen me');
+  const task = taskPage.taskCheckbox('Reopen me');
+  await taskPage.completeTask('Reopen me');
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
+  await taskPage.reopenTask('Reopen me');
   await expect(task).not.toBeChecked();
-  await expect(page.getByRole('status')).toHaveText('1 tasks remaining');
+  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
 });
 
-test('deletes only the selected task with a similar name', async ({ page }) => {
+test('deletes only the selected task with a similar name', async ({ taskPage }) => {
   for (const name of ['Task', 'Task extra']) {
-    await page.getByLabel('New task').fill(name);
-    await page.getByRole('button', { name: 'Add task' }).click();
+    await taskPage.addTask(name);
   }
-  await page.getByRole('button', { name: 'Delete Task', exact: true }).click();
-  await expect(page.getByRole('checkbox', { name: 'Task', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('checkbox', { name: 'Task extra', exact: true })).toBeVisible();
-  await expect(page.getByRole('listitem')).toHaveCount(1);
-  await expect(page.getByRole('status')).toHaveText('1 tasks remaining');
+  await taskPage.deleteTask('Task');
+  await expect(taskPage.taskCheckbox('Task')).toHaveCount(0);
+  await expect(taskPage.taskCheckbox('Task extra')).toBeVisible();
+  await expect(taskPage.taskItems).toHaveCount(1);
+  await expect(taskPage.remainingCount).toHaveText('1 tasks remaining');
 });
 
-test('trims surrounding spaces from task names', async ({ page }) => {
-  await page.getByLabel('New task').fill('  Trim me  ');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await expect(page.getByRole('listitem').locator('span')).toHaveText('Trim me');
-  await expect(page.getByLabel('New task')).toBeEmpty();
+test('trims surrounding spaces from task names', async ({ taskPage }) => {
+  await taskPage.addTask('  Trim me  ');
+  await expect(taskPage.taskItems.locator('span')).toHaveText('Trim me');
+  await expect(taskPage.newTaskInput).toBeEmpty();
 });
 
-test('rejects an empty task with native required validation', async ({ page }) => {
-  await page.getByRole('button', { name: 'Add task' }).click();
-  const missing = await page.getByLabel('New task').evaluate(
+test('rejects an empty task with native required validation', async ({ taskPage }) => {
+  await taskPage.addTaskButton.click();
+  const missing = await taskPage.newTaskInput.evaluate(
     (input: HTMLInputElement) => input.validity.valueMissing,
   );
   expect(missing).toBe(true);
-  await expect(page.getByRole('listitem')).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('0 tasks remaining');
+  await expect(taskPage.taskItems).toHaveCount(0);
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });
 
-test('resets tasks on reload as documented', async ({ page }) => {
-  await page.getByLabel('New task').fill('Temporary task');
-  await page.getByRole('button', { name: 'Add task' }).click();
-  await expect(page.getByRole('listitem')).toHaveCount(1);
+test('resets tasks on reload as documented', async ({ page, taskPage }) => {
+  await taskPage.addTask('Temporary task');
+  await expect(taskPage.taskItems).toHaveCount(1);
   await page.reload();
-  await expect(page.getByRole('listitem')).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('0 tasks remaining');
+  await expect(taskPage.taskItems).toHaveCount(0);
+  await expect(taskPage.remainingCount).toHaveText('0 tasks remaining');
 });
