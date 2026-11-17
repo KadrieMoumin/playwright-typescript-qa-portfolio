@@ -1,0 +1,7 @@
+FROM python:3.11-slim
+WORKDIR /work
+COPY security/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY . .
+ENV SEMGREP_SEND_METRICS=off SEMGREP_ENABLE_VERSION_CHECK=0
+CMD ["sh", "-c", "semgrep scan --test security/rules && semgrep scan --config security/rules/guardrails.yml --error --strict --metrics=off --exclude security/rules/guardrails.js --exclude tests/visual.spec.ts-snapshots ."]

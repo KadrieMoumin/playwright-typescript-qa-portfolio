@@ -11,7 +11,7 @@ With Node.js 24 LTS installed:
 ```sh
 npm ci
 npx playwright install chromium firefox webkit
-npm run typecheck
+npm run check
 npm run test:server
 npm test
 ```
@@ -136,7 +136,8 @@ The suite uses retrying assertions and controlled response gates instead of fixe
 sleeps. Mobile projects emulate Pixel 5 and iPhone 13 settings and touch input;
 they do not run on physical phones. WebKit is the supplied engine, not installed
 Safari. Automated axe checks do not establish full WCAG compliance. TypeScript
-checks tests, fixtures, page objects and configuration; not inline app JavaScript.
+checks tests, fixtures, page objects and configuration. ESLint also checks the
+server and the extracted browser script in app/client.js.
 Authentication, multi-user permissions and performance testing are out of scope.
 
 ## Visual baselines
@@ -165,3 +166,44 @@ updating and comparing screenshots.
 - https://playwright.dev/docs/network
 - https://playwright.dev/docs/accessibility-testing
 - https://playwright.dev/docs/test-snapshots
+
+## Code quality gate, including AI-assisted changes
+
+All code follows the same checks regardless of who wrote it:
+
+```sh
+npm ci
+npm run check
+npm run security:scan
+```
+
+`npm run check` runs ESLint with zero warnings allowed, strict TypeScript checks,
+and npm audit over production and development dependencies. High or critical
+advisories fail the audit; audit-service or network failures also fail the job.
+ESLint checks browser/server JavaScript and TypeScript, including floating
+promises and promise misuse in TypeScript. TypeScript 6.0 is used because it is
+supported by the selected TypeScript ESLint parser; versions are locked by npm ci.
+
+`npm run security:scan` builds a separate pinned Semgrep Community Edition image.
+It first runs positive/negative tests for the checked-in rules, then scans the
+repository for string code execution, HTML-string insertion, and disabled TLS
+verification. Findings and scan/configuration errors return failure. The rule
+examples in security/rules/guardrails.js are static test inputs, never executed,
+and intentionally excluded from the production scan and ESLint. Scans use local
+rules, require no Semgrep account, and disable metrics and version checks.
+These are focused guardrails, not a security certification or an AI-origin detector.
+
+GitHub Actions runs Code quality and Security rules first, then the restart/API/UI
+suite. The final Required checks job runs even if a dependency fails or is skipped,
+and succeeds only when every job succeeds. There is no continue-on-error bypass.
+The pull-request template prompts reviewers to understand AI-generated changes,
+verify meaningful tests, and inspect dependency and screenshot changes.
+
+To make the gate block merges, after pushing the workflow and seeing its first
+run, configure the repository's main-branch rule to require the Required checks
+status and pull requests. Repository rules are separate from workflow files;
+this change does not configure them remotely. Some private-repository protection
+features depend on your GitHub plan. Do not disable a check to merge a failing PR.
+
+- https://eslint.org/docs/latest/use/configure/configuration-files
+- https://docs.semgrep.dev/writing-rules/testing-rules

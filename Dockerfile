@@ -7,5 +7,5 @@ COPY app ./app
 COPY tests ./tests
 COPY pages ./pages
 COPY fixtures ./fixtures
-COPY playwright.config.ts tsconfig.json ./
+COPY playwright.config.ts tsconfig.json eslint.config.mjs ./
 CMD ["npm", "run", "test:all"]

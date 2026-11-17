@@ -9,15 +9,38 @@ concurrency:
   group: playwright-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Lint, type check and audit all npm dependencies
+        run: npm run check
+  security:
+    name: Security rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build pinned security scanner
+        run: docker build -f Dockerfile.security -t portfolio-security .
+      - name: Test rules and scan repository
+        run: docker run --rm portfolio-security
   test:
+    name: API and browser tests
+    needs: [quality, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - name: Build test image
         run: docker compose build
-      - name: Check TypeScript
-        run: docker compose run --rm tests npm run typecheck
       - name: Check persistence across server restarts
         run: docker compose run --rm tests npm run test:server
       - name: Run Playwright tests
@@ -32,3 +55,19 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: warn
+  gate:
+    name: Required checks
+    if: ${{ always() }}
+    needs: [quality, security, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every job to pass
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          SECURITY: ${{ needs.security.result }}
+          TESTS: ${{ needs.test.result }}
+        run: |
+          test "$QUALITY" = success
+          test "$SECURITY" = success
+          test "$TESTS" = success

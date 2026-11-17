@@ -1,0 +1,7 @@
+# Explicit scope replaces Semgrep's default test-directory exclusions.
+.git/
+node_modules/
+playwright-report/
+test-results/
+data/
+tests/visual.spec.ts-snapshots/

@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const html = readFileSync(new URL('./index.html', import.meta.url));
+const client = readFileSync(new URL('./client.js', import.meta.url));
 const dataDir = resolve(process.env.TASK_DATA_DIR || 'data');
 mkdirSync(dataDir, { recursive: true });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,6 +56,10 @@ const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
     if (path === '/api/health' && req.method === 'GET') return send(res, 200, { status: 'ok' });
+    if (path === '/client.js' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(client);
+    }
     if (path === '/' && req.method === 'GET') {
       workspace(req, res);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
