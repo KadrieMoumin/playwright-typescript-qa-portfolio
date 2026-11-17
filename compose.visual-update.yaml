@@ -1,0 +1,5 @@
+services:
+  tests:
+    command: ["npm", "run", "test:visual", "--", "--update-snapshots"]
+    volumes:
+      - ./tests/visual.spec.ts-snapshots:/app/tests/visual.spec.ts-snapshots

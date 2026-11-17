@@ -1,5 +1,7 @@
 services:
   tests:
+    # Match GitHub-hosted Linux runners when rendering screenshot baselines.
+    platform: linux/amd64
     build: .
     init: true
     ipc: host

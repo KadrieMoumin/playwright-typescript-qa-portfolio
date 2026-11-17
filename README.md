@@ -18,8 +18,8 @@ Playwright starts the app automatically for tests. For manual exploration run
 `npm start` and open http://127.0.0.1:3000.
 
 ```sh
-npm run test:headed
-npm run test:ui
+npm run test:headed -- --grep-invert @visual
+npm run test:ui -- --grep-invert @visual
 npm run report
 npm run typecheck
 npm test -- --project=firefox
@@ -105,7 +105,7 @@ layout checks at 320, 375 and 414 CSS pixels. Layout checks verify no horizontal
 scrolling, a fully visible Delete control, and successful touch deletion.
 Desktop keyboard scenarios remain assigned to desktop projects.
 
-The suite now contains 21 distinct scenarios and 65 project test runs:
+The non-visual suite contains 21 distinct scenarios and 65 project test runs:
 42 functional/keyboard runs + 15 accessibility scans + 8 mobile runs.
 The existing Docker and GitHub Actions commands include all five projects.
 
@@ -151,4 +151,50 @@ test('adds a task', async ({ taskPage }) => {
 ```
 
 Type checking and Docker include both the pages and fixtures directories. Test
-coverage and browser assignments remain the same (65 project test runs).
+coverage and browser assignments remain the same for non-visual coverage (65 project test runs).
+
+## Visual regression tests
+
+`tests/visual.spec.ts` adds empty, populated and partially completed task-list
+screenshots for all five browser projects (15 image comparisons). Test inputs,
+color scheme, locale, timezone and screenshot options are fixed. Existing
+functional assertions still verify behavior before the screenshot comparison.
+
+PNG baselines live in `tests/visual.spec.ts-snapshots/` and must be committed.
+They are generated and compared in the pinned Playwright Linux/amd64 Docker
+image, matching the architecture of the GitHub-hosted CI runner. On Apple Silicon,
+Docker may use emulation and run more slowly.
+
+```sh
+# Normal host tests: 65 non-visual cases, without Linux screenshot comparisons.
+npm test
+# Full Docker/CI suite: 80 cases, including 15 visual comparisons.
+docker compose build
+docker compose run --rm tests
+# Visual comparisons only (uses baselines baked into the image).
+docker compose run --rm tests npm run test:visual
+```
+
+`npm run test:all` and `npm run test:visual` should run inside Docker when using
+the committed Linux baselines. Host headed/UI commands can also discover visual
+tests; filter them out with `--grep-invert @visual` when running on macOS.
+
+For an intentional UI change, regenerate screenshots explicitly:
+
+```sh
+docker compose build
+docker compose -f compose.yaml -f compose.visual-update.yaml run --rm tests
+# Inspect every changed PNG before committing it.
+git diff --stat
+# Rebuild so comparison uses the updated images.
+docker compose build
+docker compose run --rm tests
+```
+
+The update-only Compose override mounts the baseline folder back to your host.
+The regular CI command never uses this override or requests snapshot updates.
+On visual failures, expected/actual/diff evidence is available in the HTML report
+and CI artifacts. Review diffs to decide whether the app is wrong or the intended
+design changed; do not update baselines merely to silence a failure.
+
+Reference: https://playwright.dev/docs/test-snapshots

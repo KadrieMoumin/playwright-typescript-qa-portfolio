@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "start": "node app/server.mjs",
-    "test": "playwright test",
+    "test": "playwright test --grep-invert @visual",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:all": "playwright test",
+    "test:visual": "playwright test --grep @visual"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

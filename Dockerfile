@@ -8,4 +8,4 @@ COPY tests ./tests
 COPY pages ./pages
 COPY fixtures ./fixtures
 COPY playwright.config.ts tsconfig.json ./
-CMD ["npm", "test"]
+CMD ["npm", "run", "test:all"]
