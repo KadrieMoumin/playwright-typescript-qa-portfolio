@@ -33,7 +33,7 @@ input, independent task completion, reopening completed tasks, deleting an exact
 match among similar names, trimming names, native empty-input validation, and the
 documented reset on reload. Four additional keyboard scenarios cover Enter submission,
 Tab focus order, Space toggling, and keyboard deletion. All 14 scenarios run in
-Chromium, Firefox, and WebKit (42 test runs). Tests use accessible locators and retrying assertions
+desktop Chromium, Firefox, and WebKit (42 functional/keyboard test runs). Tests use accessible locators and retrying assertions
 without fixed sleeps. Browser isolation does not imply backend-data isolation;
 this app stores tasks only in its page DOM.
 
@@ -82,11 +82,47 @@ in GitHub; adding the workflow locally does not trigger it.
 
 ## Scope and references
 
-No persistence, authentication, performance testing, or accessibility audit is
-implemented. The tests exercise the local app's documented behavior.
+No persistence, authentication, or performance testing is implemented. Automated
+accessibility checks cover common detectable issues; they do not establish full
+WCAG compliance or replace manual and assistive-technology testing. The tests exercise the local app's documented behavior.
 
 - https://playwright.dev/docs/intro
 - https://playwright.dev/docs/ci
 - https://playwright.dev/docs/docker
 
 Type checking covers TypeScript tests and configuration; it does not check the app's inline JavaScript. WebKit tests the supplied browser engine, not installed Safari.
+
+## Accessibility and mobile coverage
+
+Three whole-page axe scans cover empty, populated and completed task lists.
+They run on three desktop browsers and two emulated mobile projects (15 scans).
+Full axe results are attached to the HTML report, including on violations.
+No rules or elements are excluded.
+
+The mobile-chrome (Pixel 5) and mobile-safari (iPhone 13) projects also run four
+mobile scenarios each: a touch-based add/complete/delete flow and long-name
+layout checks at 320, 375 and 414 CSS pixels. Layout checks verify no horizontal
+scrolling, a fully visible Delete control, and successful touch deletion.
+Desktop keyboard scenarios remain assigned to desktop projects.
+
+The suite now contains 21 distinct scenarios and 65 project test runs:
+42 functional/keyboard runs + 15 accessibility scans + 8 mobile runs.
+The existing Docker and GitHub Actions commands include all five projects.
+
+```sh
+npm test -- tests/accessibility.spec.ts
+npm test -- --project=mobile-chrome
+npm test -- --project=mobile-safari
+# The same selection inside Docker:
+docker compose run --rm tests npm test -- --project=mobile-chrome
+```
+
+Mobile projects emulate browser settings and touch input. They do not run on
+physical phones or certify installed Chrome/Safari behavior. The app now has a
+main landmark, mobile viewport metadata, wrapping task names, larger controls,
+and visible keyboard focus styling.
+
+- `tests/accessibility.spec.ts`: whole-page axe checks and report attachments.
+- `tests/mobile.spec.ts`: touch interactions and narrow-screen layout checks.
+- https://playwright.dev/docs/accessibility-testing
+- https://playwright.dev/docs/emulation
